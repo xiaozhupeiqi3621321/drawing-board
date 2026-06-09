@@ -12,11 +12,13 @@ export default async function handler(req, res) {
 
   try {
     const blob = await get('gallery.json');
-    const list = blob ? await blob.json() : [];
+    if (!blob) return res.json([]);
+    const resp = await fetch(blob.downloadUrl);
+    const list = await resp.json();
     list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return res.json(list);
   } catch (err) {
-    console.error('list error:', err);
-    return res.status(500).json({ error: '服务器内部错误' });
+    console.error('list error:', err.message);
+    return res.status(500).json({ error: '服务器内部错误: ' + err.message });
   }
 }
