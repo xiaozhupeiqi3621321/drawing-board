@@ -29,6 +29,7 @@ export default async function handler(req, res) {
       contentType: 'application/json',
       access: 'private',
       addRandomSuffix: false,
+      allowOverwrite: true,
     });
 
     return res.json({ ok: true, id });
