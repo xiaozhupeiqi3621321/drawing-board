@@ -318,14 +318,17 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: dataUrl, message })
         });
-        if (!res.ok) throw new Error('提交失败');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: '未知错误' }));
+          throw new Error(errData.error || '提交失败');
+        }
         showToast('✅ 已收到你的美好作品！');
         paths = [];
         currentPath = [];
         messageInput.value = '';
         redraw();
       } catch (err) {
-        showToast('提交失败，请重试');
+        showToast('❌ ' + err.message);
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = '💌 提交';
