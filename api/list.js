@@ -11,10 +11,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const blob = await get('gallery.json');
+    const blob = await get('gallery.json', { access: 'private' });
     if (!blob) return res.json([]);
-    const resp = await fetch(blob.downloadUrl);
-    const list = await resp.json();
+    const text = await blob.text();
+    const list = JSON.parse(text);
     list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return res.json(list);
   } catch (err) {
