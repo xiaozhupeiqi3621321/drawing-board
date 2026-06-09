@@ -16,9 +16,9 @@ export default async function handler(req, res) {
 
     let list = [];
     try {
-      const existing = await get('gallery.json', { access: 'private' });
-      if (existing) {
-        const text = await existing.text();
+      const result = await get('gallery.json', { access: 'private' });
+      if (result) {
+        const text = await new Response(result.stream).text();
         list = JSON.parse(text);
       }
     } catch (_) {}
