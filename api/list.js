@@ -11,9 +11,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const blob = await get('gallery.json', { access: 'private' });
-    if (!blob) return res.json([]);
-    const text = await blob.text();
+    const result = await get('gallery.json', { access: 'private' });
+    if (!result) return res.json([]);
+    const text = await new Response(result.stream).text();
     const list = JSON.parse(text);
     list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return res.json(list);
