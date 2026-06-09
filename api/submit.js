@@ -28,6 +28,7 @@ export default async function handler(req, res) {
     await put('gallery.json', JSON.stringify(list), {
       contentType: 'application/json',
       access: 'private',
+      addRandomSuffix: false,
     });
 
     return res.json({ ok: true, id });
