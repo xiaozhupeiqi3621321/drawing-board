@@ -15,11 +15,14 @@ export default async function handler(req, res) {
     const entry = { id, image, message: message || '', createdAt: Date.now() };
 
     let list = [];
-    const existingBlob = await get('gallery.json');
-    if (existingBlob) {
-      const resp = await fetch(existingBlob.downloadUrl);
-      list = await resp.json();
-    }
+    try {
+      const existing = await get('gallery.json', { access: 'private' });
+      if (existing) {
+        const text = await existing.text();
+        list = JSON.parse(text);
+      }
+    } catch (_) {}
+
     list.push(entry);
 
     await put('gallery.json', JSON.stringify(list), {
