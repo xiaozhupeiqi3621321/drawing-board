@@ -1,3 +1,8 @@
+const OWNER = 'xiaozhupeiqi3621321';
+const REPO = 'drawing-board';
+const FILE_PATH = 'gallery-data.json';
+const API = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE_PATH}`;
+
 export async function onRequest(context) {
   const { request, env } = context;
 
@@ -20,20 +25,34 @@ export async function onRequest(context) {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const entry = { id, image, message: message || '', createdAt: Date.now() };
 
-    const bucket = env.GALLERY;
+    const token = env.GITHUB_TOKEN;
+    const headers = { Authorization: `token ${token}` };
+
     let list = [];
-    try {
-      const existing = await bucket.get('gallery.json');
-      if (existing) {
-        const text = await existing.text();
+    let sha = '';
+
+    const res = await fetch(API, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.content) {
+        const text = atob(data.content.replace(/\n/g, ''));
         list = JSON.parse(text);
+        sha = data.sha;
       }
-    } catch (_) {}
+    }
 
     list.push(entry);
 
-    await bucket.put('gallery.json', JSON.stringify(list), {
-      httpMetadata: { contentType: 'application/json' },
+    const body = {
+      message: `add entry ${id}`,
+      content: btoa(JSON.stringify(list)),
+    };
+    if (sha) body.sha = sha;
+
+    await fetch(API, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
 
     return new Response(JSON.stringify({ ok: true, id }), {
