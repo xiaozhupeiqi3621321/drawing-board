@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>美好画板</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      color: #fff;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 520px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      margin: 16px 0 6px;
+      background: linear-gradient(90deg, #f093fb, #f5576c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    .canvas-wrap {
+      position: relative;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      touch-action: none;
+    }
+    #drawCanvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4 / 3;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+      align-items: center;
+      justify-content: center;
+    }
+    .toolbar label {
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toolbar input[type="color"] {
+      width: 36px;
+      height: 36px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+    }
+    .toolbar input[type="range"] {
+      width: 80px;
+      accent-color: #f5576c;
+    }
+    .btn {
+      padding: 8px 18px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: rgba(255,255,255,0.12); }
+    .btn-danger { border-color: #f5576c; color: #f5576c; }
+    .btn-primary {
+      background: linear-gradient(90deg, #f093fb, #f5576c);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      padding: 12px 32px;
+      font-size: 16px;
+    }
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .message-area {
+      margin-top: 14px;
+    }
+    .message-area textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      font-size: 14px;
+      resize: vertical;
+      min-height: 60px;
+      font-family: inherit;
+    }
+    .message-area textarea::placeholder { color: rgba(255,255,255,0.35); }
+    .submit-area {
+      margin-top: 16px;
+      text-align: center;
+    }
+    .toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      padding: 20px 28px;
+      border-radius: 12px;
+      font-size: 16px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 999;
+      backdrop-filter: blur(8px);
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✏️ 美好画板</h1>
+    <p class="subtitle">
+      画出你心中觉得最美好的事物<br>
+      或手写下一段你想说的话
+    </p>
+
+    <div class="canvas-wrap">
+      <canvas id="drawCanvas"></canvas>
+    </div>
+
+    <div class="toolbar">
+      <label>
+        <input type="color" id="colorPicker" value="#f5576c" />
+      </label>
+      <label>
+        粗细
+        <input type="range" id="brushSize" min="1" max="20" value="4" />
+      </label>
+      <button class="btn" id="undoBtn">↩ 撤销</button>
+      <button class="btn btn-danger" id="clearBtn">🗑 清空</button>
+    </div>
+
+    <div class="message-area">
+      <textarea id="messageInput" placeholder="还想说点什么？（可选）"></textarea>
+    </div>
+
+    <div class="submit-area">
+      <button class="btn btn-primary" id="submitBtn">💌 提交</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const canvas = document.getElementById('drawCanvas');
+    const ctx = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    const brushSize = document.getElementById('brushSize');
+    const clearBtn = document.getElementById('clearBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const messageInput = document.getElementById('messageInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const toast = document.getElementById('toast');
+
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+    let paths = [];
+    let currentPath = [];
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const w = rect.width;
+      const h = w * 3 / 4;
+      canvas.width = w;
+      canvas.height = h;
+      redraw();
+    }
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
+      const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
+      return { x, y };
+    }
+
+    function startDrawing(e) {
+      e.preventDefault();
+      isDrawing = true;
+      const pos = getPos(e);
+      lastX = pos.x; lastY = pos.y;
+      currentPath = [{ x: pos.x, y: pos.y, color: colorPicker.value, size: parseFloat(brushSize.value) }];
+    }
+
+    function draw(e) {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const pos = getPos(e);
+      const color = colorPicker.value;
+      const size = parseFloat(brushSize.value);
+
+      ctx.lineWidth = size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+
+      currentPath.push({ x: pos.x, y: pos.y, color, size });
+      lastX = pos.x;
+      lastY = pos.y;
+    }
+
+    function stopDrawing(e) {
+      if (isDrawing) {
+        paths.push(currentPath);
+        currentPath = [];
+      }
+      isDrawing = false;
+    }
+
+    function redraw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      for (const path of paths) {
+        if (path.length < 2) continue;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(path[0].x, path[0].y);
+        ctx.strokeStyle = path[0].color;
+        ctx.lineWidth = path[0].size;
+        for (let i = 1; i < path.length; i++) {
+          const p = path[i];
+          if (p.color !== path[i-1].color || p.size !== path[i-1].size) {
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(path[i-1].x, path[i-1].y);
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = p.size;
+          }
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function showToast(msg, duration = 2000) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), duration);
+    }
+
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDrawing, { passive: false });
+
+    clearBtn.addEventListener('click', () => {
+      paths = [];
+      currentPath = [];
+      redraw();
+    });
+
+    undoBtn.addEventListener('click', () => {
+      paths.pop();
+      currentPath = [];
+      redraw();
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      const message = messageInput.value.trim();
+
+      if (paths.length === 0) {
+        showToast('请先画点东西再提交~');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '提交中…';
+
+      try {
+        const res = await fetch('/api/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl, message })
+        });
+        if (!res.ok) throw new Error('提交失败');
+        showToast('✅ 已收到你的美好作品！');
+        paths = [];
+        currentPath = [];
+        messageInput.value = '';
+        redraw();
+      } catch (err) {
+        showToast('提交失败，请重试');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '💌 提交';
+      }
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+  </script>
+</body>
+</html>
