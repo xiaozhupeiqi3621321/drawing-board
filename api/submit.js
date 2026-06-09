@@ -14,18 +14,22 @@ export default async function handler(req, res) {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const entry = { id, image, message: message || '', createdAt: Date.now() };
 
+    let list = [];
     const existingBlob = await get('gallery.json');
-    const list = existingBlob ? await existingBlob.json() : [];
+    if (existingBlob) {
+      const resp = await fetch(existingBlob.downloadUrl);
+      list = await resp.json();
+    }
     list.push(entry);
 
     await put('gallery.json', JSON.stringify(list), {
       contentType: 'application/json',
-      access: 'public',
+      access: 'private',
     });
 
     return res.json({ ok: true, id });
   } catch (err) {
-    console.error('submit error:', err);
-    return res.status(500).json({ error: '服务器内部错误' });
+    console.error('submit error:', err.message);
+    return res.status(500).json({ error: '服务器内部错误: ' + err.message });
   }
 }
